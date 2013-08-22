@@ -149,33 +149,47 @@ def create_site():
 @api_guard
 def update_site(site_id):
     new_site = request.json
-    # Verify incoming site. It must exist, groups must exist, plans must exist.
     site = sites.find_one({'id': site_id})
     if not site:
         return jsonify(success=False, reason='no-such-site')
-    site['groups'] = _find_groups_for_site(site['url'])
     for group in new_site.get('groups', []):
         if not _check_group_exists(group):
             return jsonify(success=False, reason='unknown-group')
     for plan_name in new_site.get('plans', []):
         if not _check_plan_exists(plan_name):
             return jsonify(success=False, reason='unknown-plan')
+
+    # we assume there is an old url (even if the url is the same...)
     if 'groups' in new_site:
+        # Find all the groups the site is in (potentially an old url)
+        # 'groups' in new_site is a list of sites selected
+        site_groups = _find_groups_for_site(site['url'])
+        new_groups = set(new_site['groups']).difference(site_groups)
+        old_groups = set(site_groups).difference(new_site['groups'])
         # Add new groups
-        for group_name in new_site.get('groups', []):
-            if group_name not in site['groups']:
-                groups.update({'name':group_name},{'$addToSet': {'sites': site['url']}})
+        for group_name in new_groups:
+            groups.update({'name':group_name}, \
+                {'$addToSet': {'sites': site['url']}})
         # Remove old groups
-        for group_name in site['groups']:
-            if group_name not in new_site.get('groups', []):
-                groups.update({'name':group_name},{'$pull': {'sites': site['url']}})
+        for group_name in old_groups:
+            groups.update({'name':group_name}, \
+                {'$pull': {'sites': site['url']}})
+    # Modify groups to adopt the new url if there is one
+    if new_site.get('url') and new_site['url'] != site['url']:
+        groups.update({'sites': site['url']}, \
+            {'$set': {'sites.$': new_site['url']}}, \
+             upsert=False, multi=True)
+
+    # update plans and url if necessary
+    updates = {}
+    if new_site.get('url') and new_site['url'] != site['url']:
+        updates.update({'url': new_site['url']})
     if 'plans' in new_site:
-        # Update the site. At this point we can only update plans.
-        sites.update({'id': site_id}, {'$set': {'plans': new_site.get('plans')}})
-    # Return the updated site
-    site = sites.find_one({'id': site_id})
-    if not site:
-        return jsonify(success=False, reason='no-such-site')
+        updates.update({'plans': new_site['plans']})
+    if updates:
+        sites.update({'id': site_id}, {'$set': updates})
+        site = sites.find_one({'id': site_id})
+    # exports updated group info
     site['groups'] = _find_groups_for_site(site['url'])
     return jsonify(success=True, site=sanitize_site(site))
 

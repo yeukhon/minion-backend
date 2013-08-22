@@ -61,7 +61,8 @@ class TestSitesAPIs(TestAPIBaseClass):
         # until #49, #50, #51 are resolved, this is commented
         self.assertEqual(res3.json()['site'], res2.json()['site'])
 
-    def test_update_site(self):
+
+    def test_update_site_with_plan_and_groups(self):
         res = self.create_user()
         res1 = self.create_group('foo')
         res1 = self.create_group('bar')
@@ -114,6 +115,18 @@ class TestSitesAPIs(TestAPIBaseClass):
         r.raise_for_status()
         j = r.json()
         self.assertEqual(j, {'success': False, 'reason': 'unknown-plan'})
+
+    def test_update_change_site_url(self):
+        res1 = self.create_user()
+        res2 = self.create_group('foo')
+        res3 = self.create_site(site='http://foo.com', groups=['foo'])
+        res4 = self.update_site(res3.json()['site']['id'], 
+            {'url': 'http://bar.com'})
+        self.assertEqual(res4.json()['site']['url'], 'http://bar.com')
+        # group should have the new url as well
+        res5 = self.get_group('foo')
+        self.assertEqual(1, len(res5.json()['group']['sites']))
+        self.assertEqual('http://bar.com', res5.json()['group']['sites'][0])
 
     def test_update_only_change_plans(self):
         r = self.create_group(group_name='foo')
