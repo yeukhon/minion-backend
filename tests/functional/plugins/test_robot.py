@@ -5,7 +5,7 @@
 from flask import Flask, make_response, redirect, url_for
 from multiprocessing import Process
 
-from base import TestPluginBaseClass, test_app, _kill_ports
+from base import TestPluginBaseClass, test_app
 
 @test_app.route('/robots.txt')
 def robot():
@@ -36,7 +36,6 @@ class TestRobotsPlugin(TestPluginBaseClass):
             test_app = APPS[app]
             test_app.run(host='localhost', port=port)
 
-        _kill_ports(cls.PORTS)
         cls.server1 = Process(target=run_app, args=(1234, 'test_app',))
         cls.server2 = Process(target=run_app, args=(1235, 'test2_app',))
         cls.server3 = Process(target=run_app, args=(1443, 'test3_app',))

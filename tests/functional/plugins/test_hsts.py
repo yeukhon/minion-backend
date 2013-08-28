@@ -12,7 +12,7 @@ from subprocess import Popen, PIPE
 
 from flask import make_response
 
-from base import TestPluginBaseClass, test_app, _kill_ports
+from base import TestPluginBaseClass, test_app
 
 @test_app.route('/has-hsps')
 def has_hsps():
@@ -56,7 +56,6 @@ class TestHSTSPlugin(TestPluginBaseClass):
                 stderr=PIPE)
             p.communicate()
 
-        _kill_ports(cls.PORTS)
         cls.stunnel = Process(target=run_stunnel)
         cls.stunnel.daemon = True
         cls.stunnel.start()
@@ -71,8 +70,6 @@ class TestHSTSPlugin(TestPluginBaseClass):
     def tearDownClass(cls):
         cls.server1.terminate()
         cls.stunnel.terminate() # only kills multiprocess instance
-        # actually kills stunnel process
-        _kill_ports(cls.PORTS)
 
     def validate_hsps(self, runner_resp, request_resp, expected=None, expectation=True):
         if expectation is True:

@@ -26,26 +26,18 @@ class TestScanAPIs(TestAPIBaseClass):
     def setUp(self):
         super(TestScanAPIs, self).setUp()
         self.import_plan()
-
-    def _kill_ports(self, ports):
-        for port in ports:
-            p = Popen(['kill `fuser -n tcp %s`' % str(port)],\
-                    stdout=PIPE, stderr=PIPE, shell=True)
-            p.communicate()
-    
+ 
     def start_server(self):
         ''' Similar to plugin functional tests, we need
-        to start server and kill ports. '''
+        to start server.'''
         def run_app():
             test_app.run(host='localhost', port=1234)
-        self._kill_ports([1234,])
         self.server = Process(target=run_app)
         self.server.daemon = True
         self.server.start()
        
     def stop_server(self):
         self.server.terminate()
-        self._kill_ports([1234,])    
 
     def test_create_scan_with_credential(self):
         res1 = self.create_user(email=self.email)
