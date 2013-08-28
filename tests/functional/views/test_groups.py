@@ -8,6 +8,12 @@ import requests
 from base import BACKEND_KEY, BASE, _call, TestAPIBaseClass
 
 class TestGroupAPIs(TestAPIBaseClass):
+    PLAN = { "name": "test",
+                      "description": "Test",
+                      "workflow": [ { "plugin_name": "minion.plugins.basic.AlivePlugin",
+                                      "description": "Test if the site is alive",
+                                      "configuration": { "foo": "bar" }
+                                      } ] }
     def test_create_group(self):
         res = self.create_user()
         res = self.create_group()
@@ -82,18 +88,18 @@ class TestGroupAPIs(TestAPIBaseClass):
         res = self.create_user()
         res1 = self.create_group(group_name="test1", users=[self.email])
         res2 = self.create_group(group_name="test2", users=[self.email])
-        res3 = self.create_site(groups=["test1"], site="http://foo.com")
-        res4 = self.create_site(groups=["test2"], site="http://bar.com")
-        raw_input("----")
+        res3 = self.create_plan(self.PLAN)
+        res4 = self.create_site(groups=["test1"], plans=['test'], site="http://foo.com")
+        res5 = self.create_site(groups=["test2"], plans=['test'], site="http://bar.com")
         # if we query just test1, should get back only foo.com
-        res5 = self.get_reports_status(user=self.email, group="test1")
-        r = res5.json()['report']
+        res6 = self.get_reports_status(user=self.email, group_name="test1")
+        r = res6.json()['report']
         self.assertEqual(len(r), 1) # there should just be one dict returned in the list
         self.assertEqual(r[0]['target'], "http://foo.com")
     
         # if we try it on get_report_issues we should see similar result
-        res6 = self.get_report_issues(user=self.email, group="test1")
-        r = res6.json()['report']
+        res7 = self.get_reports_issues(user=self.email, group_name="test1")
+        r = res7.json()['report']
         self.assertEqual(len(r), 1) # there should just be one dict returned in the list
         self.assertEqual(r[0]['target'], "http://foo.com")
 
