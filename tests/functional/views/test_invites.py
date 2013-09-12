@@ -212,8 +212,9 @@ class TestInviteAPIs(TestAPIBaseClass):
         self.assertEqual(res4.json()['user']['groups'], ['test_group'])
 
         res5 = self.create_invites(recipient=recipient, sender=self.email)
-        res6 = self.update_invite(id=res5.json()['invite']['id'],
-                decline=True)
+        #res6 = self.update_invite(id=res5.json()['invite']['id'],
+        #        decline=True)
+        res6 = self.decline_invite(id=res5.json()['invite']['id'])
         self.assertEqual(res6.json()['invite']['status'], 'declined')
 
         # check user is no longer in the group (bug #175)

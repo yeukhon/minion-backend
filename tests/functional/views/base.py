@@ -48,6 +48,8 @@ APIS = {'users':
              'DELETE': '/invites/{id}'},
         'resend_invite':
             {'POST': '/invites/{id}/resend'},
+        'decline_invite':
+            {'POST': '/invites/{id}/decline'},
         'groups':
             {'POST': '/groups',
               'GET': '/groups'},
@@ -250,13 +252,13 @@ class TestAPIBaseClass(unittest.TestCase):
     def resend_invite(self, id):
         return _call('resend_invite', 'POST', 
             url_args={'id': id}, data={'base_url': "http://localhost:8080"})
-    def update_invite(self, id, resend=None, accept=None, decline=None, base_url="http://localhost:8080", login=None):
-        if resend:
-            data = {'action': 'resend', "base_url": base_url}
-        elif accept:
+    
+    def decline_invite(self, id):
+        return _call('decline_invite', 'POST', url_args={'id': id})
+
+    def update_invite(self, id, accept=None, base_url="http://localhost:8080", login=None):
+        if accept:
             data = {'action': 'accept'}
-        elif decline:
-            data = {'action': 'decline'}
         if login:
             data.update({'login': login})
         return _call('invite', 'POST', url_args={'id': id}, data=data)

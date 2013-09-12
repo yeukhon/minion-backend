@@ -218,6 +218,28 @@ def delete_invite(id):
     invites.remove({'id': id})
     return jsonify(success=True)
 
+@app.route('/invites/<invite_id>/decline', methods=['POST'])
+@api_guard('application/json')
+def decline_invitation(invite_id):
+    invitation = invites.find_one({'id': invite_id})
+    if not invitation:
+        pass
+    user = users.find_one({'email': invitation['recipient']})
+    if not user:
+        return jsonify(success=False, reason="user-not-created")
+    if invitation["accepted_on"]:
+        return jsonify(success=False, reason="invitation-has-been-used")
+
+    invites.update({'id': invite_id}, {'$set': {'status': 'declined'}})
+    users.remove(user)
+    remove_group_association(invitation['recipient'])
+    
+    invitation = invites.find_one({'id': invite_id})
+    # notify inviter if he chooses to
+    if "decline" in invitation['notify_when']:
+        send_email('decline', invitation)
+    return jsonify(success=True, invite=sanitize_invite(invitation))
+
 @app.route('/invites/<invite_id>/resend', methods=['POST'])
 @api_guard('application/json')
 def resend_invitation(invite_id):
@@ -244,7 +266,6 @@ def resend_invitation(invite_id):
 
 ## POST /invites/<id>/control
 # {'action': 'accept'}
-# {'action': 'decline'}
 # Returns an updated invitation record
 @app.route('/invites/<id>/control', methods=['POST'])
 @api_guard('application/json')
@@ -303,15 +324,6 @@ def update_invite(id):
                 if "accept" in invitation['notify_when']:
                     send_email('accept', invitation)
                 return jsonify(success=True, invite=sanitize_invite(invitation))
-        elif action == 'decline':
-            invitation['status'] = 'declined'
-            invites.update({'id': id}, {'$set': {'status': 'declined'}})
-            users.remove(user)
-            remove_group_association(invitation['recipient'])
-            # notify inviter if he chooses to
-            if "decline" in invitation['notify_when']:
-                send_email('decline', invitation)
-            return jsonify(success=True, invite=sanitize_invite(invitation))
     else:
         return jsonify(success=False, reason='invitation-does-not-exist')
 
