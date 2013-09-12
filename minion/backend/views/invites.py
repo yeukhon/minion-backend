@@ -78,6 +78,30 @@ def sanitize_invites(invite_results):
         results.append(sanitize_invite(invite))
     return results
 
+def load_user_and_invite(invite_id):
+    """
+    Return a tuple invitation and user if the invitation
+    and user are found. Otherwise, a non-success response
+    will be returned.
+    """
+    invitation = invites.find_one({'id': invite_id})
+    if not invitation:
+        raise Exception("Invitation not found.")
+    user = users.find_one({'email': invitation['recipient']})
+    if not user:
+        raise Exception("User not found.")
+    if invitation["accepted_on"]:
+        raise Exception("Used invitation is not reusable.")
+    return invitation, user
+
+def invite_has_expired(invitation):
+    """ Given the invitation document from the database,
+    verify whether the invitation has expired or not. """
+    if (invitation['expire_on'] - datetime.datetime.utcnow()).seconds < 0:
+        return True
+    else:
+        return False
+
 #
 #
 # Create a new invite
@@ -195,7 +219,7 @@ def get_invite(id):
     if invitation:
         return jsonify(success=True, invite=sanitize_invite(invitation))
     else:
-        return jsonify(success=False, reason='invitation-does-not-exist')
+        return jsonify(success=False, reason='Invitation not found.')
 
 #
 # DELETE an invitation given the invitation id
@@ -206,7 +230,7 @@ def get_invite(id):
 def delete_invite(id):
     invitation = invites.find_one({'id': id})
     if not invitation:
-        return jsonify(success=False, reason='no-such-invitation')
+        return jsonify(success=False, reason='Invitation not found.')
     # do not delete users that are not invite pending (bug #123)
     email = invitation['recipient']
     user = users.find_one({'email': email})
@@ -221,103 +245,81 @@ def delete_invite(id):
 @app.route('/invites/<invite_id>/decline', methods=['POST'])
 @api_guard('application/json')
 def decline_invitation(invite_id):
-    invitation = invites.find_one({'id': invite_id})
-    if not invitation:
-        pass
-    user = users.find_one({'email': invitation['recipient']})
-    if not user:
-        return jsonify(success=False, reason="user-not-created")
-    if invitation["accepted_on"]:
-        return jsonify(success=False, reason="invitation-has-been-used")
-
-    invites.update({'id': invite_id}, {'$set': {'status': 'declined'}})
-    users.remove(user)
+    """ Set invitation to declined and send out notification if necessary. """
+    try:
+        invitation, user = load_user_and_invite(invite_id)
+    except Exception as e:
+        return jsonify(success=False, reason=str(e))
+    invitation['status'] = 'declined'
     remove_group_association(invitation['recipient'])
-    
-    invitation = invites.find_one({'id': invite_id})
+    users.remove(user)
+    invites.save(invitation)
+ 
     # notify inviter if he chooses to
     if "decline" in invitation['notify_when']:
         send_email('decline', invitation)
     return jsonify(success=True, invite=sanitize_invite(invitation))
 
+# POST a new invitation email again
+# {'base_url': 'http://foobar.com/'}
 @app.route('/invites/<invite_id>/resend', methods=['POST'])
 @api_guard('application/json')
 def resend_invitation(invite_id):
-    invitation = invites.find_one({'id': invite_id})
-    if not invitation:
-        pass
-    user = users.find_one({'email': invitation['recipient']})
-    if not user:
-        return jsonify(success=False, reason="user-not-created")
-    if invitation["accepted_on"]:
-        return jsonify(success=False, reason="invitation-has-been-used")
-    
-    # first send the new email
+    """ Send a new invitation email to the recipient. """
+    timenow = datetime.datetime.utcnow()
+    try:
+        invitation, user = load_user_and_invite(invite_id)
+    except Exception as e:
+        return jsonify(success=False, reason=str(e))
     send_email('invite', invitation, extra_data={'base_url': request.json['base_url']})
+
     # update the invitation record
-    new_invite_id = str(uuid.uuid4())
+    invitation['sent_on'] = timenow
     max_time_allowed = invitation.get('max_time_allowed') or \
         backend_config.get('invitation').get('max_time_allowed')
-    new_sent_on = datetime.datetime.utcnow()
-    new_expire_on = invitation['sent_on'] + datetime.timedelta(seconds=max_time_allowed)
-    invites.update({'id': invite_id}, {'$set': {'expire_on': new_expire_on,
-         'sent_on': new_sent_on, 'id': new_invite_id}})
-    return jsonify(success=True, invite=sanitize_invite(invites.find_one({'id': new_invite_id})))
+    invitation['expire_on'] = invitation['sent_on'] + datetime.timedelta(seconds=max_time_allowed)
+    invites.save(invitation)
+    return jsonify(success=True, invite=sanitize_invite(invitation))
 
-## POST /invites/<invite_id>/accept
+# POST /invites/<invite_id>/accept
+# {'login': login_email_address}
 @app.route('/invites/<invite_id>/accept', methods=['POST'])
 @api_guard('application/json')
-def accept_invite(invite_id):
+def accept_invite(invite_id): 
+    """ Accept an invitation with either the invited email,
+    an existing Minion user account, or a new email account. """
+
     timenow = datetime.datetime.utcnow()
-    import pdb
-    #pdb.set_trace() 
-    invitation = invites.find_one({'id': invite_id})
-    if not invitation:
-        return jsonify(success=False, reason='invitation-does-not-exist')
-    max_time_allowed = invitation.get('max_time_allowed') \
-        or backend_config.get('invitation').get('max_time_allowed')
-    recipient = invitation['recipient']
-    recipient_name = invitation['recipient_name']
-    sender = invitation['sender']
-    sender_name = invitation['sender_name']
-    sent_on = invitation['sent_on']
-    accepted_on = invitation['accepted_on']
-    expire_on = invitation['expire_on']
+    try:
+        invitation, user = load_user_and_invite(invite_id)
+    except Exception as e:
+        return jsonify(success=False, reason=str(e))
 
-    user = users.find_one({'email': recipient})
-    if user is None:
-        return jsonify(success=False, reason="user-not-created")
-    if accepted_on is not None:
-        return jsonify(success=False, reason="invitation-has-been-used")
-
-    # if time now is ahead of expire_on, the delta is negative
-    if (expire_on - timenow).seconds < 0:
+    if invite_has_expired(invitation):
         invitation['status'] = 'expired'
-        invites.update({'id': id}, {'$set': {'status': 'expired'}})
-        return jsonify(success=False, reason='invitation-expired')
+        invites.save(invitation)
     else:
-        invitation['status'] = 'used'
-        invitation['accepted_on'] = datetime.datetime.utcnow()
-        invites.update({'id': invite_id},{'$set': 
-            {'accepted_on': invitation['accepted_on'],
-             'status': 'used'}})
-        login_user = users.find_one({'email': request.json['login']})
-        if invitation['recipient'] != request.json['login']:
-            update_group_association(invitation['recipient'], request.json['login'])
-            if login_user:
-                # since the login email account already exists in the system
-                # we don't need the account that was created by the invitation
-                users.remove({'email': invitation['recipient']})
-            else:
-                users.update({'email': recipient}, {'$set': 
-                    {'status': 'active', \
-                     'email': request.json['login']}})
-            invitation['recipient'] = request.json['login']
+        invitation['status'] = 'accepted'
+        invitation['accepted_on'] = timenow
+
+        # case1: login with invited email account
+        if invitation['recipient'] == request.json['login']:
+            user['status'] = 'active'
+            users.save(user)
+        # case2&3: login with a different email account
         else:
-            # login same as invited recipient email
-            users.update({'email': recipient}, {'$set': {'status': 'active'}})
-        # notify inviter if he chooses to receive such notification
+            update_group_association(invitation['recipient'], request.json['login'])
+            # if login already exists, remove the invited user account
+            if users.find_one({'email': request.json['login']}):
+                users.remove({'email': invitation['recipient']})
+            else: 
+                user['email'] = request.json['login']
+                user['status'] = 'active'
+                users.save(user) 
+        invites.save(invitation)
+
+        # now user joined, notify inviter if inviter enabled it
         if "accept" in invitation['notify_when']:
             send_email('accept', invitation)
-        return jsonify(success=True, invite=sanitize_invite(invitation))
 
+    return jsonify(success=True, invite=sanitize_invite(invitation))

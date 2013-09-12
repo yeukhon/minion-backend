@@ -193,10 +193,15 @@ class TestInviteAPIs(TestAPIBaseClass):
         res1 = self.create_user(email=recipient, name='Alice', invitation=True)
 
         res2 = self.create_invites(recipient=recipient, sender=self.email)
-        res3 = self.resend_invite(id=res2.json()['invite']['id'])
-        # should not equal
-        self.assertNotEqual(res2.json(), res3.json())
-        self.assertNotEqual(res2.json()['invite']['id'], res3.json()['invite']['id'])
+        # to check resend can extend the lifetime of the invitation,
+        # we assume the original sent_on time is sometime 60 seconds ago
+        res2 = res2.json()['invite']
+        res2['sent_on'] = int(res2['sent_on']) + 60
+        res3 = self.resend_invite(id=res2['id'])
+        # the new one should have a longer expired time
+        self.assertNotEqual(res2, res3.json())
+        # the id should remain the same
+        self.assertEqual(res2['id'], res3.json()['invite']['id'])
 
     def test_decline_invite(self):
         recipient = self.random_email()
@@ -212,8 +217,6 @@ class TestInviteAPIs(TestAPIBaseClass):
         self.assertEqual(res4.json()['user']['groups'], ['test_group'])
 
         res5 = self.create_invites(recipient=recipient, sender=self.email)
-        #res6 = self.update_invite(id=res5.json()['invite']['id'],
-        #        decline=True)
         res6 = self.decline_invite(id=res5.json()['invite']['id'])
         self.assertEqual(res6.json()['invite']['status'], 'declined')
 
@@ -262,7 +265,7 @@ class TestInviteAPIs(TestAPIBaseClass):
         # re-delete should yield false
         res6 = self.delete_invite(id=recipient1_id)
         self.assertEqual(res6.json()['success'], False)
-        self.assertEqual(res6.json()['reason'], 'no-such-invitation')
+        self.assertEqual(res6.json()['reason'], 'Invitation not found.')
 
         # recipient1 should not even be in users table anymore
         res7 = self.get_user(recipient1)
@@ -298,7 +301,7 @@ class TestInviteAPIs(TestAPIBaseClass):
         # check invitation is gone
         res7 = self.get_invite(invite_id)
         self.assertEqual(res7.json()['success'], False)
-        self.assertEqual(res7.json()['reason'], 'invitation-does-not-exist')
+        self.assertEqual(res7.json()['reason'], 'Invitation not found.')
 
         # finally, check user still exist
         res8 = self.get_user(recipient1)
@@ -307,7 +310,7 @@ class TestInviteAPIs(TestAPIBaseClass):
         self.assertEqual(res8.json()['user']['status'], 'active')
 
     # bug #155
-    def test_accept_invite_with_differnet_login(self):
+    def test_accept_invite_with_different_login(self):
         # accept invite and login with a different persona account provided
         # the new email address is not in the db already.
         recipient = self.random_email()
