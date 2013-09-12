@@ -288,7 +288,6 @@ class TestInviteAPIs(TestAPIBaseClass):
         res3 = self.create_invites(recipient=recipient1, sender=self.email)
         invite_id = res3.json()['invite']['id']
         res4 = self.update_invite(invite_id, accept=True, login=recipient1)
-
         # check user is no longer invited
         res5 = self.get_user(recipient1)
         self.assertEqual(res5.json()['user']['email'], recipient1)
@@ -308,10 +307,9 @@ class TestInviteAPIs(TestAPIBaseClass):
         self.assertEqual(res8.json()['user']['status'], 'active')
 
     # bug #155
-    def test_update_user_login_if_persona_is_different(self):
-        #If persona email address is different, update the primary email
-        #account.
-
+    def test_accept_invite_with_differnet_login(self):
+        # accept invite and login with a different persona account provided
+        # the new email address is not in the db already.
         recipient = self.random_email()
         persona = self.random_email()
         res1 = self.create_user() # create sender
@@ -351,3 +349,60 @@ class TestInviteAPIs(TestAPIBaseClass):
         # check original email recipient is not in group anymore
         res9 = self.get_group('test_group')
         self.assertEqual(res9.json()['group']['users'], [persona])
+
+    def test_accept_invite_with_an_existing_email(self):
+        # accept an invite with an existing account in Minion should
+        # remove the invite account created and reassociate everything
+        # to the existing user account.
+
+        invited_user = self.random_email()
+        existing_user = self.random_email()
+        res1 = self.create_user() # create sender
+        res2 = self.create_user(email=invited_user, invitation=True)
+        res3 = self.create_user(email=existing_user)
+        userid = res2.json()['user']['id']
+
+        res4 = self.create_group(group_name='test_group1')
+        self.assertEqual(res4.json()['success'], True)
+        self.assertEqual(res4.json()['group']['name'], 'test_group1')
+
+        res5 = self.create_group(group_name='test_group2')
+        self.assertEqual(res5.json()['success'], True)
+        self.assertEqual(res5.json()['group']['name'], 'test_group2')
+
+        # add invited_user to test_group1
+        # add existing_user to test_group2
+        res6 = self.update_user(invited_user, {'groups': ['test_group1']})
+        self.assertEqual(res6.json()['user']['groups'], ['test_group1'])
+        res7 = self.update_user(existing_user, {'groups': ['test_group2']})
+        self.assertEqual(res7.json()['user']['groups'], ['test_group2'])
+
+        # now send an invite
+        res8 = self.create_invites(recipient=invited_user, sender=self.email)
+        invite_id = res8.json()['invite']['id']
+
+        # accept invite and login with a different email (and this email already exists)
+        res9 = self.update_invite(invite_id, accept=True, login=existing_user)
+        self.assertEqual(res9.json()['success'], True)
+
+        # this should raise not found
+        res10 = self.get_user(invited_user)
+        self.assertEqual(res10.json()['success'], False)
+        self.assertEqual(res10.json()['reason'], 'no-such-user')
+
+        # see whats going on with the existing user
+        res10 = self.get_user(existing_user)
+        self.assertEqual(res10.json()['user']['email'], existing_user)
+        self.assertEqual(res10.json()['user']['status'], 'active')
+
+        # check invited user is not in test_group1 anymore
+        res11 = self.get_group('test_group1')
+        self.assertEqual(True, invited_user not in res11.json()['group']['users'])
+    
+        # check existing user now in test_group1
+        res12 = self.get_group('test_group1')
+        self.assertEqual(res12.json()['group']['users'], [existing_user])
+        # check existing user is still in test_group2
+        res13 = self.get_group('test_group2')
+        self.assertEqual(res13.json()['group']['users'], [existing_user])
+

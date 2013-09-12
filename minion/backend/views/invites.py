@@ -275,13 +275,21 @@ def update_invite(id):
                 invites.update({'id': id},{'$set': 
                     {'accepted_on': invitation['accepted_on'],
                      'status': 'used'}})
-                users.update({'email': recipient}, {'$set': 
-                    {'status': 'active', \
-                     'email': request.json['login']}})
+                login_user = users.find_one({'email': request.json['login']})
                 if invitation['recipient'] != request.json['login']:
                     update_group_association(invitation['recipient'], request.json['login'])
-                # if user's persona email is different
-                invitation['recipient'] = request.json['login']
+                    if login_user:
+                        # since the login email account already exists in the system
+                        # we don't need the account that was created by the invitation
+                        users.remove({'email': invitation['recipient']})
+                    else:
+                        users.update({'email': recipient}, {'$set': 
+                            {'status': 'active', \
+                             'email': request.json['login']}})
+                    invitation['recipient'] = request.json['login']
+                else:
+                    # login same as invited recipient email
+                    users.update({'email': recipient}, {'$set': {'status': 'active'}})
                 # notify inviter if he chooses to receive such notification
                 if "accept" in invitation['notify_when']:
                     send_email('accept', invitation)
