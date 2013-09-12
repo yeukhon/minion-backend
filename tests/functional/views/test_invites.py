@@ -193,8 +193,7 @@ class TestInviteAPIs(TestAPIBaseClass):
         res1 = self.create_user(email=recipient, name='Alice', invitation=True)
 
         res2 = self.create_invites(recipient=recipient, sender=self.email)
-        res3 = self.update_invite(id=res2.json()['invite']['id'],
-                resend=True)
+        res3 = self.resend_invite(id=res2.json()['invite']['id'])
         # should not equal
         self.assertNotEqual(res2.json(), res3.json())
         self.assertNotEqual(res2.json()['invite']['id'], res3.json()['invite']['id'])

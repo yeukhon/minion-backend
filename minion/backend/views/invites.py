@@ -218,8 +218,31 @@ def delete_invite(id):
     invites.remove({'id': id})
     return jsonify(success=True)
 
+@app.route('/invites/<invite_id>/resend', methods=['POST'])
+@api_guard('application/json')
+def resend_invitation(invite_id):
+    invitation = invites.find_one({'id': invite_id})
+    if not invitation:
+        pass
+    user = users.find_one({'email': invitation['recipient']})
+    if not user:
+        return jsonify(success=False, reason="user-not-created")
+    if invitation["accepted_on"]:
+        return jsonify(success=False, reason="invitation-has-been-used")
+    
+    # first send the new email
+    send_email('invite', invitation, extra_data={'base_url': request.json['base_url']})
+    # update the invitation record
+    new_invite_id = str(uuid.uuid4())
+    max_time_allowed = invitation.get('max_time_allowed') or \
+        backend_config.get('invitation').get('max_time_allowed')
+    new_sent_on = datetime.datetime.utcnow()
+    new_expire_on = invitation['sent_on'] + datetime.timedelta(seconds=max_time_allowed)
+    invites.update({'id': invite_id}, {'$set': {'expire_on': new_expire_on,
+         'sent_on': new_sent_on, 'id': new_invite_id}})
+    return jsonify(success=True, invite=sanitize_invite(invites.find_one({'id': new_invite_id})))
+
 ## POST /invites/<id>/control
-# {'action': 'resend'}
 # {'action': 'accept'}
 # {'action': 'decline'}
 # Returns an updated invitation record
@@ -249,21 +272,7 @@ def update_invite(id):
         if not action in ('resend', 'accept', 'decline'):
             return jsonify(success=False, reason='invalid-action')
 
-        if action == 'resend':
-            new_id = str(uuid.uuid4())
-            base_url = request.json['base_url']
-            send_email('invite', invitation, extra_data={'base_url': base_url})
-            # generate new record
-            sent_on = datetime.datetime.utcnow()
-            expire_on = sent_on + datetime.timedelta(seconds=max_time_allowed)
-            invitation['id'] = new_id
-            invitation['sent_on'] = sent_on
-            invitation['expire_on'] = expire_on
-            invites.update({'id': id}, {'$set': 
-                {'sent_on': invitation['sent_on'],
-                 'id': invitation['id']}})
-            return jsonify(success=True, invite=sanitize_invite(invitation))
-        elif action == 'accept':
+        if action == 'accept':
             # if time now is ahead of expire_on, the delta is negative
             if (expire_on - timenow).seconds < 0:
                 invitation['status'] = 'expired'
