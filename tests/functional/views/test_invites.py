@@ -287,7 +287,7 @@ class TestInviteAPIs(TestAPIBaseClass):
         # send invitation
         res3 = self.create_invites(recipient=recipient1, sender=self.email)
         invite_id = res3.json()['invite']['id']
-        res4 = self.update_invite(invite_id, accept=True, login=recipient1)
+        res4 = self.accept_invite(invite_id, login=recipient1)
         # check user is no longer invited
         res5 = self.get_user(recipient1)
         self.assertEqual(res5.json()['user']['email'], recipient1)
@@ -330,7 +330,7 @@ class TestInviteAPIs(TestAPIBaseClass):
         invite_id = res5.json()['invite']['id']
 
         # accept invite and login with a different email
-        res6 = self.update_invite(invite_id, accept=True, login=persona)
+        res6 = self.accept_invite(invite_id, login=persona)
         self.assertEqual(res6.json()['success'], True)
 
         # this should raise not found
@@ -382,7 +382,7 @@ class TestInviteAPIs(TestAPIBaseClass):
         invite_id = res8.json()['invite']['id']
 
         # accept invite and login with a different email (and this email already exists)
-        res9 = self.update_invite(invite_id, accept=True, login=existing_user)
+        res9 = self.accept_invite(invite_id, login=existing_user)
         self.assertEqual(res9.json()['success'], True)
 
         # this should raise not found

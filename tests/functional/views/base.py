@@ -43,9 +43,10 @@ APIS = {'users':
             {'POST': '/invites',
              'GET': '/invites'},
         'invite': 
-            {'POST': '/invites/{id}/control',
-             'GET': '/invites/{id}',
+            {'GET': '/invites/{id}',
              'DELETE': '/invites/{id}'},
+        'accept_invite':
+            {'POST': '/invites/{id}/accept'},
         'resend_invite':
             {'POST': '/invites/{id}/resend'},
         'decline_invite':
@@ -249,19 +250,18 @@ class TestAPIBaseClass(unittest.TestCase):
     def get_invite(self, id):
         return _call('invite', 'GET', url_args={'id': id})
 
+    def accept_invite(self, id, login=None):
+        data = {'base_url': "http://localhost:8080"}
+        if login:
+            data.update({'login': login})
+        return _call('accept_invite', 'POST', url_args={'id': id}, data=data)
+
     def resend_invite(self, id):
         return _call('resend_invite', 'POST', 
             url_args={'id': id}, data={'base_url': "http://localhost:8080"})
     
     def decline_invite(self, id):
         return _call('decline_invite', 'POST', url_args={'id': id})
-
-    def update_invite(self, id, accept=None, base_url="http://localhost:8080", login=None):
-        if accept:
-            data = {'action': 'accept'}
-        if login:
-            data.update({'login': login})
-        return _call('invite', 'POST', url_args={'id': id}, data=data)
 
     def delete_invite(self, id):
         return _call('invite', 'DELETE', url_args={'id': id})
