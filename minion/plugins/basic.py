@@ -647,7 +647,24 @@ by setting Content-Security-Policy in the header only.",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
          },
-
+        "csp-set":
+        {
+            "Code": "CSP-7",
+            "Summary": "Content-Security-Policy header is set",
+            "Description": "description of CSP here.",
+            "Severity": "Info",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
+        "csp-not-set":
+        {
+            "Code": "CSP-8",
+            "Summary": "Content-Security-Policy header is not set",
+            "Description": "description of CSP here.",
+            "Severity": "High",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        }
     }
     SCHEME_SOURCE = r"(https|http|data|blob|javascript|ftp)\:"
     HOST_SOURCE = r'((https|http|data|blob|javascript|ftp)\:\/\/)?((\*\.)?[a-z0-9\-]+(\.[a-z0-9\-]+)*|\*)(\:(\*|[0-9]+))?'
@@ -697,6 +714,14 @@ by setting Content-Security-Policy in the header only.",
                 options[a[0]] += a[1:]
         return options
 
+    def _check_headers(self, headers):
+        # get the header names
+        headers = set(headers)
+        if "content-security-policy" in headers:
+            self.report_issues([self._format_report('csp-set')])
+        else:
+            self.report_issues([self._format_report('csp-not-set')])
+
     def do_run(self):
         GOOD_HEADERS = ('x-content-security-policy', 'content-security-policy',)
         BAD_HEADERS = ('x-content-security-policy-report-only', \
@@ -704,6 +729,7 @@ by setting Content-Security-Policy in the header only.",
         r = minion.curly.get(self.configuration['target'], connect_timeout=5, timeout=15)
         r.raise_for_status()
 
+        self._check_headers(r.headers)
         csp_hname, csp = self._extract_csp_header(r.headers, GOOD_HEADERS)
         csp_ro_name, csp_report_only = self._extract_csp_header(r.headers, BAD_HEADERS)
 
