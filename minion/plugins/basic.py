@@ -673,6 +673,33 @@ by setting Content-Security-Policy in the header only.",
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
+        },
+        "xcsp-set":
+        {
+            "Code": "CSP-10",
+            "Summary": "X-Content-Security-Policy header is set",
+            "Description": "description of XCSP here.",
+            "Severity": "Info",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
+        "xcsp-not-set":
+        {
+            "Code": "CSP-11",
+            "Summary": "X-Content-Security-Policy header is not set",
+            "Description": "description of XCSP here.",
+            "Severity": "High",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
+        "xcsp-ro-only-set":
+        {
+            "Code": "CSP-12",
+            "Summary": "X-Content-Security-Policy-Report-Only header is set but X-CSP is missing",
+            "Description": "description of why this is bad.",
+            "Severity": "High",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
         }
     }
     SCHEME_SOURCE = r"(https|http|data|blob|javascript|ftp)\:"
@@ -731,6 +758,10 @@ by setting Content-Security-Policy in the header only.",
             csp = True
         if "content-security-policy-report-only" in headers:
             csp_ro = True
+        if "x-content-security-policy" in headers:
+            xcsp = True
+        if "x-content-security-policy-report-only" in headers:
+            xcsp_ro = True
 
         if csp:
             self.report_issues([self._format_report('csp-set')])
@@ -738,7 +769,14 @@ by setting Content-Security-Policy in the header only.",
             self.report_issues([self._format_report('csp-not-set')])
         if csp_ro and not csp:
             self.report_issues([self._format_report('csp-ro-only-set')])
-        
+
+        if xcsp:
+            self.report_issues([self._format_report('xcsp-set')])
+        else:
+            self.report_issues([self._format_report('xcsp-not-set')])
+        if xcsp_ro and not xcsp:
+            self.report_issues([self._format_report('xcsp-ro-only-set')])
+     
     def do_run(self):
         GOOD_HEADERS = ('x-content-security-policy', 'content-security-policy',)
         BAD_HEADERS = ('x-content-security-policy-report-only', \

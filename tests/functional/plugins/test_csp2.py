@@ -18,12 +18,14 @@ CSP = {'default': "default-src 'self';"
 def render_response(type, value):
     value = CSP[value]
     res = make_response("")
-    if type.lower() == 'x':
+    if type.lower() == 'xcsp':
         res.headers['X-Content-Security-Policy'] = value
-    elif type.lower() == 'c':
+    elif type.lower() == 'csp':
         res.headers['Content-Security-Policy'] = value
-    elif type.lower() == 'cro':
+    elif type.lower() == 'csp-ro':
         res.headers['Content-Security-Policy-Report-Only'] = value
+    elif type.lower() == "xcsp-ro":
+        res.headers['X-Content-Security-Policy-Report-Only'] = value
     return res
 
 @test_app.route('/no-csp')
@@ -33,11 +35,19 @@ def no_csp():
 
 @test_app.route('/csp')
 def csp():
-    return render_response('c', 'default')
+    return render_response('csp', 'default')
 
 @test_app.route('/csp-ro-only')
 def csp_ro_only():
-    return render_response('cro', 'default')
+    return render_response('csp-ro', 'default')
+
+@ test_app.route('/xcsp')
+def xcsp():
+    return render_response('xcsp', 'default')
+
+@test_app.route('/xcsp-ro-only')
+def xcsp_ro_only():
+    return render_response('xcsp-ro', 'default')
 
 class TestCSPPlugin(TestPluginBaseClass):
     __test__ = True
@@ -66,14 +76,25 @@ class TestCSPPlugin(TestPluginBaseClass):
     def test_no_csp(self):
         api_name = "/no-csp"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-8'])
+        self._expecting_codes(resp, ['CSP-8', 'CSP-11'])
 
+    
     def test_csp(self):
         api_name = "/csp"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-7'])
+        self._expecting_codes(resp, ['CSP-7', 'CSP-11'])
 
     def test_csp_ro_only(self):
         api_name = "/csp-ro-only"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-9'])
+        self._expecting_codes(resp, ['CSP-8', 'CSP-9', 'CSP-11'])
+
+    def test_xcsp(self):
+        api_name = "/xcsp"
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-10', 'CSP-8'])
+
+    def test_xcsp_ro_only(self):
+        api_name = "/xcsp-ro-only"
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-8', 'CSP-11', 'CSP-12'])
