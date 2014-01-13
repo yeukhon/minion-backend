@@ -664,6 +664,15 @@ by setting Content-Security-Policy in the header only.",
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
+        },
+        "csp-ro-only-set":
+        {
+            "Code": "CSP-9",
+            "Summary": "Content-Security-Policy-Report-Only header is set but CSP is missing",
+            "Description": "description of why this is bad.",
+            "Severity": "High",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
         }
     }
     SCHEME_SOURCE = r"(https|http|data|blob|javascript|ftp)\:"
@@ -717,10 +726,15 @@ by setting Content-Security-Policy in the header only.",
     def _check_headers(self, headers):
         # get the header names
         headers = set(headers)
+        csp = csp_ro = xcsp = xcsp_ro = False
         if "content-security-policy" in headers:
+            csp = True
             self.report_issues([self._format_report('csp-set')])
         else:
             self.report_issues([self._format_report('csp-not-set')])
+            if "content-security-policy-report-only" in headers:
+                csp_ro = True
+                self.report_issues([self._format_report('csp-ro-only-set')])
 
     def do_run(self):
         GOOD_HEADERS = ('x-content-security-policy', 'content-security-policy',)

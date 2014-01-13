@@ -22,6 +22,8 @@ def render_response(type, value):
         res.headers['X-Content-Security-Policy'] = value
     elif type.lower() == 'c':
         res.headers['Content-Security-Policy'] = value
+    elif type.lower() == 'cro':
+        res.headers['Content-Security-Policy-Report-Only'] = value
     return res
 
 @test_app.route('/no-csp')
@@ -32,6 +34,10 @@ def no_csp():
 @test_app.route('/csp')
 def csp():
     return render_response('c', 'default')
+
+@test_app.route('/csp-ro-only')
+def csp_ro_only():
+    return render_response('cro', 'default')
 
 class TestCSPPlugin(TestPluginBaseClass):
     __test__ = True
@@ -66,3 +72,8 @@ class TestCSPPlugin(TestPluginBaseClass):
         api_name = "/csp"
         resp = self._run(api_name)
         self._expecting_codes(resp, ['CSP-7'])
+
+    def test_csp_ro_only(self):
+        api_name = "/csp-ro-only"
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-9'])
