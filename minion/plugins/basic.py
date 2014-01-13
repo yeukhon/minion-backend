@@ -729,13 +729,16 @@ by setting Content-Security-Policy in the header only.",
         csp = csp_ro = xcsp = xcsp_ro = False
         if "content-security-policy" in headers:
             csp = True
+        if "content-security-policy-report-only" in headers:
+            csp_ro = True
+
+        if csp:
             self.report_issues([self._format_report('csp-set')])
         else:
             self.report_issues([self._format_report('csp-not-set')])
-            if "content-security-policy-report-only" in headers:
-                csp_ro = True
-                self.report_issues([self._format_report('csp-ro-only-set')])
-
+        if csp_ro and not csp:
+            self.report_issues([self._format_report('csp-ro-only-set')])
+        
     def do_run(self):
         GOOD_HEADERS = ('x-content-security-policy', 'content-security-policy',)
         BAD_HEADERS = ('x-content-security-policy-report-only', \
