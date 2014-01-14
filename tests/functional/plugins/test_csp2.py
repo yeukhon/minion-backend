@@ -102,7 +102,7 @@ class TestCSPPlugin(TestPluginBaseClass):
     def test_csp(self):
         api_name = "/csp"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-7', 'CSP-11'])
+        self._expecting_codes(resp, ['CSP-7', 'CSP-11', 'CSP-17'])
 
     def test_csp_ro_only(self):
         api_name = "/csp-ro-only"
@@ -122,7 +122,7 @@ class TestCSPPlugin(TestPluginBaseClass):
     def test_csp_csp_ro(self):
         api_name = "/csp-csp-ro"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-13', 'CSP-7', 'CSP-11'])
+        self._expecting_codes(resp, ['CSP-13', 'CSP-7', 'CSP-11', 'CSP-17'])
 
     def test_xcsp_xcsp_ro(self):
         api_name = "/xcsp-xcsp-ro"

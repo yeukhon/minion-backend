@@ -747,6 +747,17 @@ by setting Content-Security-Policy in the header only.",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
         },
+        "inherit-default-src":
+        {
+            "Code": "CSP-17",
+            "Summary": "{count} CSP directives are not specified",
+            "Description": "These directives ({dirs}) are not specified in the CSP header so they inherit \
+the policy settings specify in default-src, which is {default}.",
+            "Solution": "{solution}",
+            "Severity": "Info",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
 
     }
     SCHEME_SOURCE = r"(https|http|data|blob|javascript|ftp)\:"
@@ -856,16 +867,29 @@ by setting Content-Security-Policy in the header only.",
             self.policies.append(self.Policy(d[0], d[1:], " ".join(d)))
 
     def _check_directives(self):
+        default = None
         dirs = []
         depr_dirs = []
         unknown_dirs = []
         for policy in self.policies:
             if policy.directive in self.DIRECTIVES:
                 dirs.append(policy)
+                if policy.directive == "default-src":
+                    default = policy
             elif policy.directive in self.DEPRECATED_DIRECTIVES:
                 depr_dirs.append(policy)
             else:
                 unknown_dirs.append(policy)
+        if dirs:
+            directives = [d.directive for d in dirs]
+            dirs_not_specify = set(self.DIRECTIVES).intersection(set(directives))
+            self.report_issues([
+                format_report(self, 'inherit-default-src', [
+                    {'Summary': {"count": len(dirs_not_specify)}},
+                    {'Description': {'dirs': str(dirs_not_specify),
+                                     'default': default.str}}
+                ])
+            ])
 
         if unknown_dirs:
             unknown_s = "\n".join(p.str for p in unknown_dirs)
