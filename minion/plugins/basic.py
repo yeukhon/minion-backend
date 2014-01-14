@@ -758,7 +758,42 @@ the policy settings specify in default-src, which is {default}.",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
         },
-
+        "match-none":
+        {
+            "Code": "CSP-18",
+            "Summary": "{count} directives specify 'none'",
+            "Description": "The following directives specify 'none':\n{directives}",
+            "Severity": "Info",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
+        "bad-none":
+        {
+            "Code": "CSP-19",
+            "Summary": "When 'none' is specify, no other source expressions can be specified",
+            "Description": "The following directives specify 'none' and other sources:\n{directives}",
+            "Severity": "High",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
+        "inline":
+        {
+            "Code": "CSP-20",
+            "Summary": "unsafe-inline is enabled",
+            "Description": "The following policies have unsafe-inline specified:\n{policies}",
+            "Severity": "High",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
+        "eval":
+        {
+            "Code": "CSP-21",
+            "Summary": "unsafe-eval is enabled",
+            "Description": "The following policies have unsafe-eval specified:\n{policies}",
+            "Severity": "High",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
     }
     SCHEME_SOURCE = r"(https|http|data|blob|javascript|ftp)\:"
     HOST_SOURCE = r'((https|http|data|blob|javascript|ftp)\:\/\/)?((\*\.)?[a-z0-9\-]+(\.[a-z0-9\-]+)*|\*)(\:(\*|[0-9]+))?'
@@ -917,7 +952,51 @@ the policy settings specify in default-src, which is {default}.",
                     {"Solution": {"solution": "\n".join(solutions)}}
                 ])
             ])
-            
+    def _check_source_lists(self):
+        good_none = []
+        bad_none = []
+        inline = []
+        eval = []
+        for policy in self.policies:
+            if "'none'" in policy.source_list:
+                if len(policy.source_list) > 1:
+                    bad_none.append(policy)
+                    continue
+                else:
+                    good_none.append(policy)
+            if policy.directive in ('style-src', 'script-src'):
+                if "'unsafe-inline'" in policy.source_list:
+                    inline.append(policy)
+                if "'unsafe-eval'" in policy.source_list:
+                    eval.append(policy)
+
+        if good_none:
+            self.report_issues([
+                format_report(self, 'match-none', [
+                    {'Summary': {'count': len(good_none)}},
+                    {'Description': {"directives": str(good_none)}}
+                ])
+            ])
+        if bad_none:
+            self.report_issues([
+                format_report(self, 'bad-none', [
+                    {'Summary': {'count': len(bad_none)}},
+                    {'Description': {'directives': str(bad_none)}}
+                ])
+            ])
+        if inline:
+            self.report_issues([
+                format_report(self, 'inline', [
+                    {'Description': {"policies": "\n".join(p.str for p in inline)}}
+                ])
+            ])
+        if eval:
+            self.report_issues([
+                format_report(self, 'eval', [
+                    {'Description': {"policies": "\n".join(p.str for p in eval)}}
+                ])
+            ])
+
     def do_run(self):
         GOOD_HEADERS = ('x-content-security-policy', 'content-security-policy',)
         BAD_HEADERS = ('x-content-security-policy-report-only', \
@@ -933,6 +1012,7 @@ the policy settings specify in default-src, which is {default}.",
             csp = r.headers["content-security-policy"]
             self._split_policy(csp)
             self._check_directives()
+            self._check_source_lists()
         # Fast fail if both headers are set
         if csp and csp_report_only:
             self.report_issues([self._format_report('dual-policy')])

@@ -15,7 +15,11 @@ from minion.plugins.basic import CSPPlugin
 CSP = {
     'default': "default-src 'self';",
     'unknown': "default-sr 'self'; unknown-src 'self';",
-    'allow': "allow 'self';"
+    'allow': "allow 'self';",
+    'good-none': "default-src 'none';",
+    'bad-none': "default-src 'self' 'none'",
+    'eval': "default-src 'self'; script-src 'unsafe-eval' 'self';",
+    'inline': "default-src 'self'; script-src 'unsafe-inline' 'self';"
 }
 
 def render_response(types, value):
@@ -69,6 +73,22 @@ def csp_unknown_directive():
 @test_app.route('/csp-deprecated-directive')
 def csp_deprecated_directive():
     return render_response(['csp'], 'allow')
+
+@test_app.route('/good-none')
+def good_none():
+    return render_response(['csp'], 'good-none')
+
+@test_app.route('/bad-none')
+def bad_none():
+    return render_response(['csp'], 'bad-none')
+
+@test_app.route('/eval')
+def eval():
+    return render_response(['csp'], 'eval')
+
+@test_app.route('/inline')
+def inline():
+    return render_response(['csp'], 'inline')
 
 class TestCSPPlugin(TestPluginBaseClass):
     __test__ = True
@@ -138,3 +158,25 @@ class TestCSPPlugin(TestPluginBaseClass):
         api_name = "/csp-deprecated-directive"
         resp = self._run(api_name)
         self._expecting_codes(resp, ['CSP-16'])
+
+    def test_good_none(self):
+        api_name = '/good-none'
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-18'])
+
+    def test_bad_none(self):
+        api_name = '/bad-none'
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-19'])
+
+    def test_inline(self):
+        api_name = '/inline'
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-20'])
+
+    def test_eval(self):
+        api_name = '/eval'
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-21'])
+
+
