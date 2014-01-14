@@ -736,7 +736,18 @@ by setting Content-Security-Policy in the header only.",
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
-        }
+        },
+        "deprecated-directive":
+        {
+            "Code": "CSP-16",
+            "Summary": "Found {count} deprecated CSP directives",
+            "Description": "{description}",
+            "Solution": "{solution}",
+            "Severity": "High",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
+
     }
     SCHEME_SOURCE = r"(https|http|data|blob|javascript|ftp)\:"
     HOST_SOURCE = r'((https|http|data|blob|javascript|ftp)\:\/\/)?((\*\.)?[a-z0-9\-]+(\.[a-z0-9\-]+)*|\*)(\:(\*|[0-9]+))?'
@@ -744,6 +755,11 @@ by setting Content-Security-Policy in the header only.",
     DIRECTIVES = ("default-src", "script-src", "style-src", "object-src", "img-src", \
         "media-src", "frame-src", "font-src", "connect-src", "report-uri")
     DEPRECATED_DIRECTIVES = ("allow", "xhr-src")
+    DEPRECATED_DIRECTIVES_PAIR = dict(zip(DEPRECATED_DIRECTIVES, ["default-src", "connect-src"]))
+    DESCRIPTIONS = {
+        "allow": "allow is deprecated and should be replace with default-src.",
+        "xhr-connect": "xhr-connect is a deprecated directive name. Use connect-src for CSP 1.0 compliance."
+    }
     Policy = namedtuple('Policy', 'directive source_list str')
 
     def _extract_csp_header(self, headers, keys_tuple):
@@ -844,9 +860,9 @@ by setting Content-Security-Policy in the header only.",
         depr_dirs = []
         unknown_dirs = []
         for policy in self.policies:
-            if policy in self.DIRECTIVES:
+            if policy.directive in self.DIRECTIVES:
                 dirs.append(policy)
-            elif policy in self.DEPRECATED_DIRECTIVES:
+            elif policy.directive in self.DEPRECATED_DIRECTIVES:
                 depr_dirs.append(policy)
             else:
                 unknown_dirs.append(policy)
@@ -860,6 +876,24 @@ by setting Content-Security-Policy in the header only.",
                 ])
             ])
 
+        if depr_dirs:
+            solutions = []
+            descriptions = []
+            for policy in depr_dirs:
+                replacement = self.DEPRECATED_DIRECTIVES_PAIR[policy.directive]
+                new_policy = " ".join([replacement] + policy.source_list)
+                solution_str = "Replace {old_policy} with {new_policy}".format(
+                    old_policy=policy.str, new_policy=new_policy)
+                descriptions.append(self.DESCRIPTIONS[policy.directive])
+                solutions.append(solution_str)
+            self.report_issues([
+                format_report(self, 'deprecated-directive', [
+                    {'Summary': {"count": len(depr_dirs)}},
+                    {"Description": {"description": "\n".join(descriptions)}},
+                    {"Solution": {"solution": "\n".join(solutions)}}
+                ])
+            ])
+            
     def do_run(self):
         GOOD_HEADERS = ('x-content-security-policy', 'content-security-policy',)
         BAD_HEADERS = ('x-content-security-policy-report-only', \

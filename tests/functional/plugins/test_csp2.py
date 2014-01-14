@@ -14,7 +14,8 @@ from minion.plugins.basic import CSPPlugin
 
 CSP = {
     'default': "default-src 'self';",
-    'unknown': "default-sr 'self'; unknown-src 'self';"
+    'unknown': "default-sr 'self'; unknown-src 'self';",
+    'allow': "allow 'self';"
 }
 
 def render_response(types, value):
@@ -64,6 +65,10 @@ def xcsp_xcsp_ro():
 @test_app.route('/csp-unknown-directive')
 def csp_unknown_directive():
     return render_response(['csp'], 'unknown')
+
+@test_app.route('/csp-deprecated-directive')
+def csp_deprecated_directive():
+    return render_response(['csp'], 'allow')
 
 class TestCSPPlugin(TestPluginBaseClass):
     __test__ = True
@@ -128,3 +133,8 @@ class TestCSPPlugin(TestPluginBaseClass):
         api_name = "/csp-unknown-directive"
         resp = self._run(api_name)
         self._expecting_codes(resp, ['CSP-15', 'CSP-7', 'CSP-11'])
+
+    def test_csp_deprecated_directive(self):
+        api_name = "/csp-deprecated-directive"
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-16'])
