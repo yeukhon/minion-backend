@@ -12,7 +12,10 @@ from flask import make_response
 from base import TestPluginBaseClass, test_app
 from minion.plugins.basic import CSPPlugin
 
-CSP = {'default': "default-src 'self';"}
+CSP = {
+    'default': "default-src 'self';",
+    'unknown': "default-sr 'self'; unknown-src 'self';"
+}
 
 def render_response(types, value):
     res = make_response("")
@@ -57,6 +60,10 @@ def csp_csp_ro():
 @test_app.route('/xcsp-xcsp-ro')
 def xcsp_xcsp_ro():
     return render_response(['xcsp', 'xcsp-ro'], 'default')
+
+@test_app.route('/csp-unknown-directive')
+def csp_unknown_directive():
+    return render_response(['csp'], 'unknown')
 
 class TestCSPPlugin(TestPluginBaseClass):
     __test__ = True
@@ -116,3 +123,8 @@ class TestCSPPlugin(TestPluginBaseClass):
         api_name = "/xcsp-xcsp-ro"
         resp = self._run(api_name)
         self._expecting_codes(resp, ['CSP-14', 'CSP-10', 'CSP-8'])
+
+    def test_csp_unknown_directive(self):
+        api_name = "/csp-unknown-directive"
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-15', 'CSP-7', 'CSP-11'])

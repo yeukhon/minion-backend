@@ -4,6 +4,7 @@
 
 
 import collections
+import copy
 import logging
 import os
 import re
@@ -11,6 +12,7 @@ import time
 import sys
 import urlparse
 
+from collections import namedtuple
 from twisted.internet.task import LoopingCall
 from robots_scanner.scanner import scan
 
@@ -545,6 +547,13 @@ class RobotsPlugin(BlockingPlugin):
             self.report_issues([self._format_report('invalid')])
 
 
+def format_report(self, issue_key, format_list):
+    issue = copy.deepcopy(self.REPORTS[issue_key])
+    for component in format_list:
+        for component_name, kwargs in component.items():
+            issue[component_name] = issue[component_name].format(**kwargs)
+    return issue
+
 #
 # CSPPlugin
 #
@@ -718,11 +727,24 @@ by setting Content-Security-Policy in the header only.",
             "Severity": "Info",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
+        },
+        "unknown-directive":
+        {
+            "Code": "CSP-15",
+            "Summary": "Found {count} unrecongized CSP directives",
+            "Description": "The followings are the list of unrecongized CSP directives:\n{policies}",
+            "Severity": "High",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
         }
     }
     SCHEME_SOURCE = r"(https|http|data|blob|javascript|ftp)\:"
     HOST_SOURCE = r'((https|http|data|blob|javascript|ftp)\:\/\/)?((\*\.)?[a-z0-9\-]+(\.[a-z0-9\-]+)*|\*)(\:(\*|[0-9]+))?'
     KEYWORD_SOURCE = r"('self'|'unsafe-inline'|'unsafe-eval')"
+    DIRECTIVES = ("default-src", "script-src", "style-src", "object-src", "img-src", \
+        "media-src", "frame-src", "font-src", "connect-src", "report-uri")
+    DEPRECATED_DIRECTIVES = ("allow", "xhr-src")
+    Policy = namedtuple('Policy', 'directive source_list str')
 
     def _extract_csp_header(self, headers, keys_tuple):
         keys = set(headers)
@@ -800,7 +822,44 @@ by setting Content-Security-Policy in the header only.",
             self.report_issues([self._format_report('xcsp-xcsp-ro-set')])
         elif xcsp_ro and not xcsp:
             self.report_issues([self._format_report('xcsp-ro-only-set')])
-     
+
+    def _split_policy(self, csp):
+        r1 = re.compile(';\s*')
+        r2 = re.compile('\s+')
+
+        # individual directives should be split by ;
+        dir_split_list = r1.split(csp)
+        # the last item could be empty if ; is present
+        dir_split_list = filter(None, dir_split_list)
+        
+        # split by space so directive name is first element
+        # follows by a list of source expressions
+        self.policies = []
+        for index, directive_group in enumerate(dir_split_list):
+            d = r2.split(directive_group)
+            self.policies.append(self.Policy(d[0], d[1:], " ".join(d)))
+
+    def _check_directives(self):
+        dirs = []
+        depr_dirs = []
+        unknown_dirs = []
+        for policy in self.policies:
+            if policy in self.DIRECTIVES:
+                dirs.append(policy)
+            elif policy in self.DEPRECATED_DIRECTIVES:
+                depr_dirs.append(policy)
+            else:
+                unknown_dirs.append(policy)
+
+        if unknown_dirs:
+            unknown_s = "\n".join(p.str for p in unknown_dirs)
+            self.report_issues([
+                format_report(self, 'unknown-directive', [
+                    {'Summary': {"count": len(unknown_dirs)}},
+                    {"Description": {"policies": unknown_s}}
+                ])
+            ])
+
     def do_run(self):
         GOOD_HEADERS = ('x-content-security-policy', 'content-security-policy',)
         BAD_HEADERS = ('x-content-security-policy-report-only', \
@@ -812,6 +871,10 @@ by setting Content-Security-Policy in the header only.",
         csp_hname, csp = self._extract_csp_header(r.headers, GOOD_HEADERS)
         csp_ro_name, csp_report_only = self._extract_csp_header(r.headers, BAD_HEADERS)
 
+        if "content-security-policy" in r.headers:
+            csp = r.headers["content-security-policy"]
+            self._split_policy(csp)
+            self._check_directives()
         # Fast fail if both headers are set
         if csp and csp_report_only:
             self.report_issues([self._format_report('dual-policy')])
