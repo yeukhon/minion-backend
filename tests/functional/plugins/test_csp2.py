@@ -12,20 +12,21 @@ from flask import make_response
 from base import TestPluginBaseClass, test_app
 from minion.plugins.basic import CSPPlugin
 
-CSP = {'default': "default-src 'self';"
-}
+CSP = {'default': "default-src 'self';"}
 
-def render_response(type, value):
-    value = CSP[value]
+def render_response(types, value):
     res = make_response("")
-    if type.lower() == 'xcsp':
-        res.headers['X-Content-Security-Policy'] = value
-    elif type.lower() == 'csp':
-        res.headers['Content-Security-Policy'] = value
-    elif type.lower() == 'csp-ro':
-        res.headers['Content-Security-Policy-Report-Only'] = value
-    elif type.lower() == "xcsp-ro":
-        res.headers['X-Content-Security-Policy-Report-Only'] = value
+    value = CSP.get(value)
+    for t in types:
+        _t = t.lower()
+        if t == 'xcsp':
+            res.headers.add('X-Content-Security-Policy', value)
+        elif t == 'csp':
+            res.headers.add('Content-Security-Policy', value)
+        elif t == 'csp-ro':
+            res.headers.add('Content-Security-Policy-Report-Only', value)
+        elif t == "xcsp-ro":
+            res.headers['X-Content-Security-Policy-Report-Only'] = value
     return res
 
 @test_app.route('/no-csp')
@@ -35,19 +36,27 @@ def no_csp():
 
 @test_app.route('/csp')
 def csp():
-    return render_response('csp', 'default')
+    return render_response(['csp'], 'default')
 
 @test_app.route('/csp-ro-only')
 def csp_ro_only():
-    return render_response('csp-ro', 'default')
+    return render_response(['csp-ro'], 'default')
 
 @ test_app.route('/xcsp')
 def xcsp():
-    return render_response('xcsp', 'default')
+    return render_response(['xcsp'], 'default')
 
 @test_app.route('/xcsp-ro-only')
 def xcsp_ro_only():
-    return render_response('xcsp-ro', 'default')
+    return render_response(['xcsp-ro'], 'default')
+
+@test_app.route('/csp-csp-ro')
+def csp_csp_ro():
+    return render_response(['csp', 'csp-ro'], 'default')
+
+@test_app.route('/xcsp-xcsp-ro')
+def xcsp_xcsp_ro():
+    return render_response(['xcsp', 'xcsp-ro'], 'default')
 
 class TestCSPPlugin(TestPluginBaseClass):
     __test__ = True
@@ -78,7 +87,6 @@ class TestCSPPlugin(TestPluginBaseClass):
         resp = self._run(api_name)
         self._expecting_codes(resp, ['CSP-8', 'CSP-11'])
 
-    
     def test_csp(self):
         api_name = "/csp"
         resp = self._run(api_name)
@@ -98,3 +106,13 @@ class TestCSPPlugin(TestPluginBaseClass):
         api_name = "/xcsp-ro-only"
         resp = self._run(api_name)
         self._expecting_codes(resp, ['CSP-8', 'CSP-11', 'CSP-12'])
+
+    def test_csp_csp_ro(self):
+        api_name = "/csp-csp-ro"
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-13', 'CSP-7', 'CSP-11'])
+
+    def test_xcsp_xcsp_ro(self):
+        api_name = "/xcsp-xcsp-ro"
+        resp = self._run(api_name)
+        self._expecting_codes(resp, ['CSP-14', 'CSP-10', 'CSP-8'])

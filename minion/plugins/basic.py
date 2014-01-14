@@ -700,6 +700,24 @@ by setting Content-Security-Policy in the header only.",
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
+        },
+        "csp-csp-ro-set":
+        {
+            "Code": "CSP-13",
+            "Summary": "Both Content-Security-Policy and Report-Only headers are set",
+            "Description": "description of daul policy.",
+            "Severity": "Info",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
+        },
+        "xcsp-xcsp-ro-set":
+        {
+            "Code": "CSP-14",
+            "Summary": "Both X-Content-Security-Policy and Report-Only headers are set",
+            "Description": "description of daul policy",
+            "Severity": "Info",
+            "URLs": [ {"URL": None, "Extra": None}],
+            "FurtherInfo": FURTHER_INFO
         }
     }
     SCHEME_SOURCE = r"(https|http|data|blob|javascript|ftp)\:"
@@ -767,14 +785,20 @@ by setting Content-Security-Policy in the header only.",
             self.report_issues([self._format_report('csp-set')])
         else:
             self.report_issues([self._format_report('csp-not-set')])
-        if csp_ro and not csp:
+
+        if csp and csp_ro:
+            self.report_issues([self._format_report('csp-csp-ro-set')])
+        elif csp_ro and not csp:
             self.report_issues([self._format_report('csp-ro-only-set')])
 
         if xcsp:
             self.report_issues([self._format_report('xcsp-set')])
         else:
             self.report_issues([self._format_report('xcsp-not-set')])
-        if xcsp_ro and not xcsp:
+
+        if xcsp and xcsp_ro:
+            self.report_issues([self._format_report('xcsp-xcsp-ro-set')])
+        elif xcsp_ro and not xcsp:
             self.report_issues([self._format_report('xcsp-ro-only-set')])
      
     def do_run(self):
