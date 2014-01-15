@@ -586,76 +586,6 @@ class CSPPlugin(BlockingPlugin):
 ]
 
     REPORTS = {
-        "set":
-        {
-            "Code": "CSP-0",
-            "Summary": "Content-Security-Policy header set properly",
-            "Description": "The Content-Security-Policy header is set properly. Neither 'unsafe-inline' or \
-'unsafe-eval' is enabled.",
-            "Severity": "Info",
-            "URLs": [ {"URL": None, "Extra": None} ],
-            "FurtherInfo": FURTHER_INFO
-         },
-         "not-set":
-         {
-             "Code": "CSP-1",
-             "Summary": "No Content-Security-Policy header set",
-             "Description": "Site has no Content-Security Policy header set. CSP defines the Content-Security-Policy \
-HTTP header that allows you to create a whitelist of sources of trusted content, and instructs the browser to only \
-execute or render resources from those sources.",
-             "Severity": "High",
-             "URLs": [ {"URL": None, "Extra": None} ],
-             "FurtherInfo": FURTHER_INFO
-         },
-         "report-mode":
-         {
-             "Code": "CSP-2",
-            "Summary": "Content-Security-Policy-Report-Only header set",
-            "Description": "Content-Security-Policy-Report-Only does not enforce any CSP policy. Use \
-Content-Security-Policy to secure your site.",
-            "Severity": "High",
-            "URLs": [ {"URL": None, "Extra": None}],
-            "FurtherInfo": FURTHER_INFO
-         },
-         "dual-policy":
-         {
-             "Code": "CSP-3",
-            "Summary": "Content-Security-Policy-Report-Only and Content-Security-Policy are set",
-            "Description": "While browsers will honored both headers (polices specify in Content-Security-Policy \
-are enforced), it is recommended to remove report-only header from production site",
-            "Severity": "High",
-            "URLs": [ {"URL": None, "Extra": None}],
-            "FurtherInfo": FURTHER_INFO
-         },
-         "unprefixed":
-         {
-             "Code": "CSP-4",
-            "Summary": "X-Content-Security-Policy header is set",
-            "Description": "While browsers still support prefixed CSP, it is recommended to use the unprefixed version \
-by setting Content-Security-Policy in the header only.",
-            "Severity": "High",
-            "URLs": [ {"URL": None, "Extra": None}],
-            "FurtherInfo": FURTHER_INFO
-         },
-         "malformed":
-         {
-             "Code": "CSP-5",
-            "Summary": "Malformed Content-Security-Policy header is set",
-            "Description": "",
-            "Severity": "High",
-            "URLs": [ {"URL": None, "Extra": None}],
-            "FurtherInfo": FURTHER_INFO
-         },
-         "unsafe":
-         {
-             "Code": "CSP-6",
-            "Summary": "{directive} is set in Content-Security-Policy header",
-            "Description": "By enabling either 'unsafe-inline' or 'unsafe-eval' can open ways for inline script injection \
-(both style and javascript) and malicious script execution, respectively.",
-            "Severity": "High",
-            "URLs": [ {"URL": None, "Extra": None}],
-            "FurtherInfo": FURTHER_INFO
-         },
         "csp-set":
         {
             "Code": "CSP-7",
@@ -808,19 +738,6 @@ the policy settings specify in default-src, which is {default}.",
     }
     Policy = namedtuple('Policy', 'directive source_list str')
 
-    def _extract_csp_header(self, headers, keys_tuple):
-        keys = set(headers)
-        matches = keys.intersection(keys_tuple)
-        name = None
-        value = None
-        if len(matches) == 2:
-            name = keys_tuple[0]
-            value = headers[name]
-        elif matches:
-            name = matches.pop()
-            value = headers[name]
-        return name, value
-
     def _match(self, uri, regex):
         r = re.compile(regex)
         m = r.match(uri)
@@ -828,29 +745,6 @@ the policy settings specify in default-src, which is {default}.",
             return True
         else:
             return False
-
-    def _parse_csp(self, csp):
-        options = collections.defaultdict(list)
-        p = re.compile(r';\s*')
-        for rule in p.split(csp):
-            a = rule.split()
-            if a:
-                values = a[1:]
-                for value in values:
-                    if value in ("'none'", "*"):
-                        if len(values) > 2:
-                            raise ValueError("When %s is present, other values cannot co-exist with %s" %(value, value))
-                    elif value not in ("'self'", "'unsafe-inline'", "'unsafe-eval'", "'https:'", "'https'"):
-                        if not self._match(value, self.SCHEME_SOURCE) and \
-                           not self._match(value, self.KEYWORD_SOURCE) and \
-                           not self._match(value, self.HOST_SOURCE):
-                            raise ValueError("%s does not seem like a valid source expression for %s" % (value, a[0]))
-                    elif value == "'unsafe-inline'" or value == "'unsafe-eval'":
-                        issue = self._format_report('unsafe')
-                        issue['Summary'] = issue['Summary'].format(directive=value)
-                        self.report_issue(issue)
-                options[a[0]] += a[1:]
-        return options
 
     def _check_headers(self, headers):
         # get the header names
@@ -998,43 +892,12 @@ the policy settings specify in default-src, which is {default}.",
             ])
 
     def do_run(self):
-        GOOD_HEADERS = ('x-content-security-policy', 'content-security-policy',)
-        BAD_HEADERS = ('x-content-security-policy-report-only', \
-                'content-security-policy-report-only',)
         r = minion.curly.get(self.configuration['target'], connect_timeout=5, timeout=15)
         r.raise_for_status()
 
         self._check_headers(r.headers)
-        csp_hname, csp = self._extract_csp_header(r.headers, GOOD_HEADERS)
-        csp_ro_name, csp_report_only = self._extract_csp_header(r.headers, BAD_HEADERS)
-
         if "content-security-policy" in r.headers:
             csp = r.headers["content-security-policy"]
             self._split_policy(csp)
             self._check_directives()
             self._check_source_lists()
-        # Fast fail if both headers are set
-        if csp and csp_report_only:
-            self.report_issues([self._format_report('dual-policy')])
-            return
-
-        # Fast fail if only reporting is enabled
-        if csp_report_only:
-            self.report_issues([self._format_report('report-mode')])
-            return
-
-        # Fast fail if no CSP header is set
-        if csp is None:
-            self.report_issues([self._format_report('not-set')])
-            return
-
-        # Parse the CSP and look for issues
-        try:
-            csp_config = self._parse_csp(csp)
-            if not csp_config:
-                self.report_issues([self._format_report('malformed', description=csp_hname)])
-                return
-            else:
-                self.report_issues([self._format_report('set')])
-        except ValueError as e:
-            self.report_issues([self._format_report('malformed', description='Malformed CSP header set: ' + str(e))])
