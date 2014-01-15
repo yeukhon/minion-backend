@@ -622,7 +622,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
     REPORTS = {
         "csp-set":
         {
-            "Code": "CSP-7",
+            "Code": "CSP-1",
             "Summary": "Content-Security-Policy header is set",
             "Description": DESCRIPTIONS['csp'],
             "Severity": "Info",
@@ -631,7 +631,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "csp-not-set":
         {
-            "Code": "CSP-8",
+            "Code": "CSP-2",
             "Summary": "Content-Security-Policy header is not set",
             "Description": DESCRIPTIONS['csp'],
             "Severity": "High",
@@ -640,7 +640,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "csp-ro-only-set":
         {
-            "Code": "CSP-9",
+            "Code": "CSP-3",
             "Summary": "Content-Security-Policy-Report-Only header is set but CSP is missing",
             "Description": DESCRIPTIONS['report-only'],
             "Severity": "High",
@@ -649,7 +649,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "xcsp-set":
         {
-            "Code": "CSP-10",
+            "Code": "CSP-4",
             "Summary": "X-Content-Security-Policy header is set",
             "Description": DESCRIPTIONS['xcsp'],
             "Severity": "Info",
@@ -658,7 +658,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "xcsp-not-set":
         {
-            "Code": "CSP-11",
+            "Code": "CSP-5",
             "Summary": "X-Content-Security-Policy header is not set",
             "Description": DESCRIPTIONS['xcsp'],
             "Severity": "High",
@@ -667,7 +667,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "xcsp-ro-only-set":
         {
-            "Code": "CSP-12",
+            "Code": "CSP-6",
             "Summary": "X-Content-Security-Policy-Report-Only header is set but X-CSP is missing",
             "Description": DESCRIPTIONS['report-only'],
             "Severity": "High",
@@ -676,7 +676,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "csp-csp-ro-set":
         {
-            "Code": "CSP-13",
+            "Code": "CSP-7",
             "Summary": "Both Content-Security-Policy and Report-Only headers are set",
             "Description": "description of daul policy.",
             "Severity": "Info",
@@ -685,7 +685,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "xcsp-xcsp-ro-set":
         {
-            "Code": "CSP-14",
+            "Code": "CSP-8",
             "Summary": "Both X-Content-Security-Policy and Report-Only headers are set",
             "Description": "description of daul policy",
             "Severity": "Info",
@@ -694,7 +694,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "unknown-directive":
         {
-            "Code": "CSP-15",
+            "Code": "CSP-9",
             "Summary": "Found {count} unrecongized CSP directives",
             "Description": DESCRIPTIONS['unknown-directive'] + 
                            "The followings are the list of unrecongized CSP directives:\n{policies}",
@@ -704,7 +704,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "deprecated-directive":
         {
-            "Code": "CSP-16",
+            "Code": "CSP-10",
             "Summary": "Found {count} deprecated CSP directives",
             "Description": "{description}",
             "Solution": "{solution}",
@@ -714,7 +714,7 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
         },
         "inherit-default-src":
         {
-            "Code": "CSP-17",
+            "Code": "CSP-11",
             "Summary": "{count} CSP directives are not specified",
             "Description": DESCRIPTIONS['default-src'] + "The following directives ({dirs}) are not specified \
 in the CSP header so they inherit the default settings: {default}.",
@@ -725,7 +725,7 @@ in the CSP header so they inherit the default settings: {default}.",
         },
         "match-none":
         {
-            "Code": "CSP-18",
+            "Code": "CSP-12",
             "Summary": "{count} directives specify 'none'",
             "Description": DESCRIPTIONS['none'] + "The following directives specify 'none':\n{directives}",
             "Severity": "Info",
@@ -734,7 +734,7 @@ in the CSP header so they inherit the default settings: {default}.",
         },
         "bad-none":
         {
-            "Code": "CSP-19",
+            "Code": "CSP-13",
             "Summary": "When 'none' is specify, no other source expressions can be specified",
             "Description": DESCRIPTIONS['none'] + "The following directives specify 'none' and other sources:\n{directives}",
             "Severity": "High",
@@ -743,7 +743,7 @@ in the CSP header so they inherit the default settings: {default}.",
         },
         "inline":
         {
-            "Code": "CSP-20",
+            "Code": "CSP-14",
             "Summary": "unsafe-inline is enabled",
             "Description": DESCRIPTIONS['unsafe-inline'] + "The following policies have unsafe-inline specified:\n{policies}",
             "Severity": "High",
@@ -752,7 +752,7 @@ in the CSP header so they inherit the default settings: {default}.",
         },
         "eval":
         {
-            "Code": "CSP-21",
+            "Code": "CSP-15",
             "Summary": "unsafe-eval is enabled",
             "Description": DESCRIPTIONS['unsafe-eval'] + "The following policies have unsafe-eval specified:\n{policies}",
             "Severity": "High",

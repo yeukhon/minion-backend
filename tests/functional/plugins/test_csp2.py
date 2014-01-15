@@ -8,15 +8,16 @@ import time
 import unittest
 
 from flask import make_response
+from collections import namedtuple
 
 from base import TestPluginBaseClass, test_app
 from minion.plugins.basic import CSPPlugin
 
 CSP = {
     'default': "default-src 'self';",
-    'unknown': "default-sr 'self'; unknown-src 'self';",
+    'unknown': "default-src 'self'; unknown-src 'self';",
     'allow': "allow 'self';",
-    'good-none': "default-src 'none';",
+    'match-none': "default-src 'none';",
     'bad-none': "default-src 'self' 'none'",
     'eval': "default-src 'self'; script-src 'unsafe-eval' 'self';",
     'inline': "default-src 'self'; script-src 'unsafe-inline' 'self';"
@@ -74,9 +75,9 @@ def csp_unknown_directive():
 def csp_deprecated_directive():
     return render_response(['csp'], 'allow')
 
-@test_app.route('/good-none')
+@test_app.route('/match-none')
 def good_none():
-    return render_response(['csp'], 'good-none')
+    return render_response(['csp'], 'match-none')
 
 @test_app.route('/bad-none')
 def bad_none():
@@ -92,10 +93,20 @@ def inline():
 
 class TestCSPPlugin(TestPluginBaseClass):
     __test__ = True
+    Issue = namedtuple('Issue', 'code summary severity')
+    CSP = CSPPlugin()
+
     @classmethod
     def setUpClass(cls):
         super(TestCSPPlugin, cls).setUpClass()
         cls.pname = 'CSPPlugin'
+
+    def _get_summary(self, key, fill_with=None):
+        _summary = self.CSP.REPORTS[key]['Summary']
+        if fill_with:
+            return _summary.format(**fill_with)
+        else:
+            return _summary
 
     def _run(self, api_name):
         base = 'http://localhost:1234'
@@ -108,75 +119,124 @@ class TestCSPPlugin(TestPluginBaseClass):
             request_resp = requests.exceptions.ConnectionError
         return runner_resp
 
-    def _expecting_codes(self, resps, expects):
-        codes = [item['data']['Code'] for item in resps 
-                    if item.get('data') and item['data'].get('Code')]
-        for expect in expects:
-            self.assertEqual(True, expect in codes)
+    def _test_expecting_code(self, expect, issues):
+        codes = [issue.code for issue in issues]
+        self.assertEqual(True, expect in codes)
+    
+    def _test_expecting_summary(self, expect, issues):
+        summaries = [issue.summary for issue in issues]
+        self.assertEqual(True, expect in summaries)
 
-    def test_no_csp(self):
-        api_name = "/no-csp"
-        resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-8', 'CSP-11'])
+    def _test(self, resps, code, summary):
+        issues = []
+        for issue in resps:
+            if issue.get('data') and issue['data'].get('Code'):
+                _issue = self.Issue(issue['data']['Code'],
+                                    issue['data']['Summary'],
+                                    issue['data']['Severity'])
+                issues.append(_issue)
+        self._test_expecting_code(code, issues)
+        self._test_expecting_summary(summary, issues)
 
     def test_csp(self):
         api_name = "/csp"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-7', 'CSP-11', 'CSP-17'])
+        code = 'CSP-1'
+        summary = self._get_summary('csp-set')
+        self._test(resp, code, summary)
+
+    def test_no_csp(self):
+        api_name = "/no-csp"
+        resp = self._run(api_name)
+        code = 'CSP-2'
+        summary = self._get_summary('csp-not-set')
+        self._test(resp, code, summary)
 
     def test_csp_ro_only(self):
         api_name = "/csp-ro-only"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-8', 'CSP-9', 'CSP-11'])
+        code = 'CSP-3'
+        summary = self._get_summary('csp-ro-only-set')
+        self._test(resp, code, summary)
 
     def test_xcsp(self):
         api_name = "/xcsp"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-10', 'CSP-8'])
+        code = 'CSP-4'
+        summary = self._get_summary('xcsp-set')
+        self._test(resp, code, summary)
+
+    def test_no_xcsp(self):
+        api_name = '/csp'
+        resp = self._run(api_name)
+        code = 'CSP-5'
+        summary = self._get_summary('xcsp-not-set')
+        self._test(resp, code, summary)
 
     def test_xcsp_ro_only(self):
         api_name = "/xcsp-ro-only"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-8', 'CSP-11', 'CSP-12'])
+        code = 'CSP-6'
+        summary = self._get_summary('xcsp-ro-only-set')
+        self._test(resp, code, summary)
 
     def test_csp_csp_ro(self):
         api_name = "/csp-csp-ro"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-13', 'CSP-7', 'CSP-11', 'CSP-17'])
+        code = 'CSP-7'
+        summary = self._get_summary('csp-csp-ro-set')
+        self._test(resp, code, summary)
 
     def test_xcsp_xcsp_ro(self):
         api_name = "/xcsp-xcsp-ro"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-14', 'CSP-10', 'CSP-8'])
+        code = 'CSP-8'
+        summary = self._get_summary('xcsp-xcsp-ro-set')
+        self._test(resp, code, summary)
 
     def test_csp_unknown_directive(self):
         api_name = "/csp-unknown-directive"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-15', 'CSP-7', 'CSP-11'])
+        code = 'CSP-9'
+        summary = self._get_summary('unknown-directive',
+                                    fill_with={"count": 1})
+        self._test(resp, code, summary)
 
     def test_csp_deprecated_directive(self):
         api_name = "/csp-deprecated-directive"
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-16'])
+        code = 'CSP-10'
+        summary = self._get_summary('deprecated-directive',
+                                    fill_with={"count": 1})
+        summary = summary.format({"count": str(1)})
+        self._test(resp, code, summary)
 
-    def test_good_none(self):
-        api_name = '/good-none'
+    def test_match_none(self):
+        api_name = '/match-none'
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-18'])
+        code = 'CSP-12'
+        summary = self._get_summary('match-none',
+                                    fill_with={"count": 1})
+        self._test(resp, code, summary)
 
     def test_bad_none(self):
         api_name = '/bad-none'
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-19'])
+        code = 'CSP-13'
+        summary = self._get_summary('bad-none',
+                                    fill_with={"count": 1})
+        self._test(resp, code, summary)
 
     def test_inline(self):
         api_name = '/inline'
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-20'])
+        code = 'CSP-14'
+        summary = self._get_summary('inline')
+        self._test(resp, code, summary)
 
     def test_eval(self):
         api_name = '/eval'
         resp = self._run(api_name)
-        self._expecting_codes(resp, ['CSP-21'])
-
-
+        code = 'CSP-15'
+        summary = self._get_summary('eval')
+        self._test(resp, code, summary)
