@@ -585,12 +585,46 @@ class CSPPlugin(BlockingPlugin):
         },
 ]
 
+    DESCRIPTIONS = {
+        "csp": "Content-Security-Policy (CSP) is an added layer of security that helps to detect and mitigate certain \
+types of attacks, including Cross Site Scripting (XSS) and data injection attacks. These attacks are used for \
+everything from data theft to site defacement or distribution of malware.",
+        "xcsp": "X-Content-Security-Policy header is now being deprecated by major browsers such as Firefox, Chrome and \
+Opera. It is advised to add Content-Security-Policy header (currently is at 1.0 spec) for users using newer verions of \
+browsers, and keep the X-Content-Security-Policy header intact so users who are using out-of-date browsers that support \
+CSP can still benefit from the X-CSP protection.",
+        "report-only": "The X/Content-Security-Policy-Report-Only header lets the developers to experiment CSP settings \
+rather than actually enforcing the policy settings. Missing X/Content-Security-Policy is the same as not having CSP \
+in the first place.",
+        "unknown-directive": "This plugin checks CSP based on 1.0 specification. CSP 1.1 is a draft version and not all \
+browsers support every feature of CSP 1.1. If this scan session has marked CSP 1.1 rules as invalid, you may ignore \
+those warnings.",
+        "default-src": "This directive is used to specify the default source whitelist; this directive must be specified \
+so that unspecified directives can inherit the settings from default-src.",
+        "unsafe-inline": "Unless specified in default-src or in script-src or in style-src, inline Javascript and inline \
+CSS are not permitted. This default behavior is introduced to mitigate the risk of scripting attacks such as \
+Cross Site Scripting (XSS) which take advantage of executing inline Javascript or CSS code during user time. By \
+specifying 'unsafe-inline', inline scripting attack may be possible.",
+        "unsafe-eval": "Unless specified in default-src or in script-src or in style-src, the eval() function is disabled \
+to prevent creating and executing code from string, which is commonly used to create Cross Site Scripting (XSS) vector in \
+XSS attack.",
+        "none": "CSP allows developers to specify a whitelist of trusted source origins. For example, specifying \
+img-src foobar.com means images can only be loaded from foobar.com. 'none' is a special keyword to indicate that no \
+sources can be used for loading for the corresponding directive. For example, if an application does not need iframe, \
+specifying frame-src 'none' will disallow iframe from being loaded on the target site. When 'none' is present, other \
+sources must not be included in the whitelist of the corresponding directive.",
+        "allow": "The current CSP 1.0 spec has renamed the directive 'allow' to 'default-src'. The deprecated header, \
+X-Content-Security-Policy, works with the deprecated directive 'allow'.",
+        "xhr-src": "The current CSP 1.0 spec has renamed the directive 'xhr-src' to 'connect-src'. The deprecated \
+header, X-Content-Security-Policy, works with the deprecated directive 'xhr-connect'.",
+}
+
     REPORTS = {
         "csp-set":
         {
             "Code": "CSP-7",
             "Summary": "Content-Security-Policy header is set",
-            "Description": "description of CSP here.",
+            "Description": DESCRIPTIONS['csp'],
             "Severity": "Info",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -599,7 +633,7 @@ class CSPPlugin(BlockingPlugin):
         {
             "Code": "CSP-8",
             "Summary": "Content-Security-Policy header is not set",
-            "Description": "description of CSP here.",
+            "Description": DESCRIPTIONS['csp'],
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -608,7 +642,7 @@ class CSPPlugin(BlockingPlugin):
         {
             "Code": "CSP-9",
             "Summary": "Content-Security-Policy-Report-Only header is set but CSP is missing",
-            "Description": "description of why this is bad.",
+            "Description": DESCRIPTIONS['report-only'],
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -617,7 +651,7 @@ class CSPPlugin(BlockingPlugin):
         {
             "Code": "CSP-10",
             "Summary": "X-Content-Security-Policy header is set",
-            "Description": "description of XCSP here.",
+            "Description": DESCRIPTIONS['xcsp'],
             "Severity": "Info",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -626,7 +660,7 @@ class CSPPlugin(BlockingPlugin):
         {
             "Code": "CSP-11",
             "Summary": "X-Content-Security-Policy header is not set",
-            "Description": "description of XCSP here.",
+            "Description": DESCRIPTIONS['xcsp'],
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -635,7 +669,7 @@ class CSPPlugin(BlockingPlugin):
         {
             "Code": "CSP-12",
             "Summary": "X-Content-Security-Policy-Report-Only header is set but X-CSP is missing",
-            "Description": "description of why this is bad.",
+            "Description": DESCRIPTIONS['report-only'],
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -662,7 +696,8 @@ class CSPPlugin(BlockingPlugin):
         {
             "Code": "CSP-15",
             "Summary": "Found {count} unrecongized CSP directives",
-            "Description": "The followings are the list of unrecongized CSP directives:\n{policies}",
+            "Description": DESCRIPTIONS['unknown-directive'] + 
+                           "The followings are the list of unrecongized CSP directives:\n{policies}",
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -681,8 +716,8 @@ class CSPPlugin(BlockingPlugin):
         {
             "Code": "CSP-17",
             "Summary": "{count} CSP directives are not specified",
-            "Description": "These directives ({dirs}) are not specified in the CSP header so they inherit \
-the policy settings specify in default-src, which is {default}.",
+            "Description": DESCRIPTIONS['default-src'] + "The following directives ({dirs}) are not specified \
+in the CSP header so they inherit the default settings: {default}.",
             "Solution": "{solution}",
             "Severity": "Info",
             "URLs": [ {"URL": None, "Extra": None}],
@@ -692,7 +727,7 @@ the policy settings specify in default-src, which is {default}.",
         {
             "Code": "CSP-18",
             "Summary": "{count} directives specify 'none'",
-            "Description": "The following directives specify 'none':\n{directives}",
+            "Description": DESCRIPTIONS['none'] + "The following directives specify 'none':\n{directives}",
             "Severity": "Info",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -701,7 +736,7 @@ the policy settings specify in default-src, which is {default}.",
         {
             "Code": "CSP-19",
             "Summary": "When 'none' is specify, no other source expressions can be specified",
-            "Description": "The following directives specify 'none' and other sources:\n{directives}",
+            "Description": DESCRIPTIONS['none'] + "The following directives specify 'none' and other sources:\n{directives}",
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -710,7 +745,7 @@ the policy settings specify in default-src, which is {default}.",
         {
             "Code": "CSP-20",
             "Summary": "unsafe-inline is enabled",
-            "Description": "The following policies have unsafe-inline specified:\n{policies}",
+            "Description": DESCRIPTIONS['unsafe-inline'] + "The following policies have unsafe-inline specified:\n{policies}",
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
@@ -719,7 +754,7 @@ the policy settings specify in default-src, which is {default}.",
         {
             "Code": "CSP-21",
             "Summary": "unsafe-eval is enabled",
-            "Description": "The following policies have unsafe-eval specified:\n{policies}",
+            "Description": DESCRIPTIONS['unsafe-eval'] + "The following policies have unsafe-eval specified:\n{policies}",
             "Severity": "High",
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
