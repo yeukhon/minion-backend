@@ -599,8 +599,6 @@ in the first place.",
         "unknown-directive": "This plugin checks CSP based on 1.0 specification. CSP 1.1 is a draft version and not all \
 browsers support every feature of CSP 1.1. If this scan session has marked CSP 1.1 rules as invalid, you may ignore \
 those warnings.",
-        "default-src": "This directive is used to specify the default source whitelist; this directive must be specified \
-so that unspecified directives can inherit the settings from default-src.",
         "unsafe-inline": "Unless specified in default-src or in script-src or in style-src, inline Javascript and inline \
 CSS are not permitted. This default behavior is introduced to mitigate the risk of scripting attacks such as \
 Cross Site Scripting (XSS) which take advantage of executing inline Javascript or CSS code during user time. By \
@@ -712,29 +710,9 @@ header, X-Content-Security-Policy, works with the deprecated directive 'xhr-conn
             "URLs": [ {"URL": None, "Extra": None}],
             "FurtherInfo": FURTHER_INFO
         },
-        "inherit-default-src":
-        {
-            "Code": "CSP-11",
-            "Summary": "{count} CSP directives are not specified",
-            "Description": DESCRIPTIONS['default-src'] + "The following directives ({dirs}) are not specified \
-in the CSP header so they inherit the default settings: {default}.",
-            "Solution": "{solution}",
-            "Severity": "Info",
-            "URLs": [ {"URL": None, "Extra": None}],
-            "FurtherInfo": FURTHER_INFO
-        },
-        "match-none":
-        {
-            "Code": "CSP-12",
-            "Summary": "{count} directives specify 'none'",
-            "Description": DESCRIPTIONS['none'] + "The following directives specify 'none':\n{directives}",
-            "Severity": "Info",
-            "URLs": [ {"URL": None, "Extra": None}],
-            "FurtherInfo": FURTHER_INFO
-        },
         "bad-none":
         {
-            "Code": "CSP-13",
+            "Code": "CSP-11",
             "Summary": "When 'none' is specify, no other source expressions can be specified",
             "Description": DESCRIPTIONS['none'] + "The following directives specify 'none' and other sources:\n{directives}",
             "Severity": "High",
@@ -743,7 +721,7 @@ in the CSP header so they inherit the default settings: {default}.",
         },
         "inline":
         {
-            "Code": "CSP-14",
+            "Code": "CSP-12",
             "Summary": "unsafe-inline is enabled",
             "Description": DESCRIPTIONS['unsafe-inline'] + "The following policies have unsafe-inline specified:\n{policies}",
             "Severity": "High",
@@ -752,7 +730,7 @@ in the CSP header so they inherit the default settings: {default}.",
         },
         "eval":
         {
-            "Code": "CSP-15",
+            "Code": "CSP-13",
             "Summary": "unsafe-eval is enabled",
             "Description": DESCRIPTIONS['unsafe-eval'] + "The following policies have unsafe-eval specified:\n{policies}",
             "Severity": "High",
@@ -769,7 +747,7 @@ in the CSP header so they inherit the default settings: {default}.",
     DEPRECATED_DIRECTIVES_PAIR = dict(zip(DEPRECATED_DIRECTIVES, ["default-src", "connect-src"]))
     DESCRIPTIONS = {
         "allow": "allow is deprecated and should be replace with default-src.",
-        "xhr-connect": "xhr-connect is a deprecated directive name. Use connect-src for CSP 1.0 compliance."
+        "xhr-src": "xhr-connect is a deprecated directive name. Use connect-src for CSP 1.0 compliance."
     }
     Policy = namedtuple('Policy', 'directive source_list str')
 
@@ -831,30 +809,13 @@ in the CSP header so they inherit the default settings: {default}.",
             self.policies.append(self.Policy(d[0], d[1:], " ".join(d)))
 
     def _check_directives(self):
-        default = None
-        dirs = []
         depr_dirs = []
         unknown_dirs = []
         for policy in self.policies:
-            if policy.directive in self.DIRECTIVES:
-                dirs.append(policy)
-                if policy.directive == "default-src":
-                    default = policy
-            elif policy.directive in self.DEPRECATED_DIRECTIVES:
+            if policy.directive in self.DEPRECATED_DIRECTIVES:
                 depr_dirs.append(policy)
-            else:
+            elif policy.directive not in self.DIRECTIVES:
                 unknown_dirs.append(policy)
-        if dirs:
-            directives = [d.directive for d in dirs]
-            dirs_not_specify = set(self.DIRECTIVES).intersection(set(directives))
-            self.report_issues([
-                format_report(self, 'inherit-default-src', [
-                    {'Summary': {"count": len(dirs_not_specify)}},
-                    {'Description': {'dirs': str(dirs_not_specify),
-                                     'default': default.str}}
-                ])
-            ])
-
         if unknown_dirs:
             unknown_s = "\n".join(p.str for p in unknown_dirs)
             self.report_issues([
@@ -882,7 +843,6 @@ in the CSP header so they inherit the default settings: {default}.",
                 ])
             ])
     def _check_source_lists(self):
-        good_none = []
         bad_none = []
         inline = []
         eval = []
@@ -890,22 +850,13 @@ in the CSP header so they inherit the default settings: {default}.",
             if "'none'" in policy.source_list:
                 if len(policy.source_list) > 1:
                     bad_none.append(policy)
+                    # something bad so skip to next directive
                     continue
-                else:
-                    good_none.append(policy)
             if policy.directive in ('style-src', 'script-src'):
                 if "'unsafe-inline'" in policy.source_list:
                     inline.append(policy)
                 if "'unsafe-eval'" in policy.source_list:
                     eval.append(policy)
-
-        if good_none:
-            self.report_issues([
-                format_report(self, 'match-none', [
-                    {'Summary': {'count': len(good_none)}},
-                    {'Description': {"directives": str(good_none)}}
-                ])
-            ])
         if bad_none:
             self.report_issues([
                 format_report(self, 'bad-none', [
